@@ -1,0 +1,28 @@
+{
+  "incorrect_entities":[],
+  "scores":[
+    {
+      "entity_id":"0e782bc6-84cb-4c80-bd48-77988ccaaf4c",
+      "prediction":"\u003e 730"
+    },{
+      "entity_id":"85da6d00-9e64-4913-b66c-63d670d084a7",
+      "prediction":"\u003e 730"
+    }
+  ]
+}
+
+
+{
+  "incorrect_entities":[],
+  "scores":[
+    {
+      "entity_id":"0e782bc6-84cb-4c80-bd48-77988ccaaf4c",
+      "direct_sales_2 Persona":"late_adopter",
+      "monat_2 Persona":"late_adopter",
+      "plexus Persona":"late_adopter"
+    },
+    {
+      "entity_id":"85da6d00-9e64-4913-b66c-63d670d084a7",
+      "direct_sales_2 Persona":"",
+      "monat_2 Persona":"",
+      "plexus Persona":""}]}

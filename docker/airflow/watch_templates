@@ -1,0 +1,47 @@
+#!/usr/local/bin/python3
+import click
+import subprocess
+
+from pathlib import Path
+from watchgod import watch
+
+workdir = '/workspace/airflow/templates'
+
+
+def _template_name_from_path(path):
+    return str(path).split('/')[-1].split('.')[0]
+
+
+def deploy_template(template):
+    cmd = [
+            'jeeves',
+            'composer',
+            'deploy-template',
+            'local',
+            template,
+            'client=bluesun'
+    ]
+    process = subprocess.Popen(cmd,
+                               cwd=workdir,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
+    for line in iter(process.stdout.readline, b''):
+        click.echo(line)
+    error_code = process.returncode
+    if error_code is not None:
+        click.echo(f'error: {error_code}')
+
+
+def main():
+    for changes in watch(workdir):
+        for _, pth in changes:
+            template = _template_name_from_path(pth)
+            deploy_template(template)
+
+
+if __name__ == '__main__':
+    for p in Path(workdir).glob('*.py'):
+        template = _template_name_from_path(p)
+        deploy_template(template)
+
+    main()

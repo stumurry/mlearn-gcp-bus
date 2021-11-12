@@ -1,0 +1,105 @@
+version: '3.3'
+services:
+  workspace:
+    image: gcr.io/icentris-ml-prd/workspace:latest
+    container_name: workspace
+    volumes:
+      - ~/.config/gcloud:/home/app/.config/gcloud
+      - ~/.bash_aliases:/home/app/.bash_aliases:ro
+      - ~/.bashrc:/home/app/.bashrc:ro
+      - ./src/bigquery:/workspace/bigquery
+      - ./src/configs:/workspace/configs
+      - ./src/jeeves:/workspace/jeeves
+      - ./src/shared:/workspace/shared
+    environment:
+        - ENV=local
+        - GOOGLE_APPLICATION_CREDENTIALS=/home/app/.config/gcloud/application_default_credentials.json
+    tty: true
+  dataflow:
+    image: gcr.io/icentris-ml-prd/dataflow:latest
+    container_name: dataflow
+    volumes:
+      - ~/.config/gcloud:/home/app/.config/gcloud
+      - ~/.bash_aliases:/home/app/.bash_aliases:ro
+      - ~/.bashrc:/home/app/.bashrc:ro
+      - ./src/airflow/dags/templates/sql:/workspace/dataflow/tests/sql_templates
+      - ./src/dataflow:/workspace/dataflow
+      - ./src/shared:/workspace/shared
+      - ./docker:/workspace/docker
+      - ./src/jeeves:/workspace/jeeves
+    environment:
+        - ENV=local
+        - GOOGLE_APPLICATION_CREDENTIALS=/home/app/.config/gcloud/application_default_credentials.json
+    tty: true
+  airflow:
+    image: gcr.io/icentris-ml-prd/airflow:latest
+    container_name: airflow
+    command: ['bash']
+    environment:
+        - GOOGLE_APPLICATION_CREDENTIALS=/home/app/.config/gcloud/application_default_credentials.json
+        - ENV=local
+    tty: true
+    volumes:
+        - ~/.config/gcloud:/home/app/.config/gcloud
+        - ~/.bash_aliases:/home/app/.bash_aliases:ro
+        - ~/.bashrc:/home/app/.bashrc:ro
+        - ./src/airflow:/workspace/airflow
+        - ./src/shared:/workspace/shared
+        - ./docker:/workspace/docker
+        - ./src/jeeves:/workspace/jeeves
+        - ./src/bigquery:/workspace/bigquery
+    ports:
+        - 8080:8080
+  mysql:
+    image: gcr.io/icentris-ml-prd/mysql:latest
+    container_name: mysql
+    environment:
+        - MYSQL_ALLOW_EMPTY_PASSWORD=true
+    ports:
+      - 3309:3306
+  githooks:
+    image: gcr.io/icentris-ml-prd/githooks:latest
+    container_name: githooks
+    command: ['bash']
+    volumes:
+      - .././machine-learning:/workspace/machine-learning
+      - ./.git:/tmp/.git
+      - ./hooks:/tmp/hooks
+      - ~/.gitconfig:/etc/gitconfig
+    environment:
+        - ENV=local
+    tty: true
+  neo4j:
+    image: neo4j:4.0.4
+    container_name: neo4j
+    ports:
+      # - 7473:7473
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+      # - ./neo4j/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/dtm
+  apis:
+    image: gcr.io/icentris-ml-prd/ml-apis:latest
+    container_name: apis
+    command: ['bash']
+    ports:
+      - 8885:8885
+      - 8089:8089
+    volumes:
+      - ~/.config/gcloud:/home/app/.config/gcloud
+      - ~/.bash_aliases:/home/app/.bash_aliases:ro
+      - ~/.bashrc:/home/app/.bashrc:ro
+      - ./src/apis:/workspace/apis
+      - ./src/shared:/workspace/shared
+      - ./docker:/workspace/docker
+      - ./src/jeeves:/workspace/jeeves
+      - ./src/bigquery:/workspace/bigquery
+    environment:
+      - ENV=local
+      - PORT=8885
+      - GOOGLE_APPLICATION_CREDENTIALS=/home/app/.config/gcloud/application_default_credentials.json
+    tty: true

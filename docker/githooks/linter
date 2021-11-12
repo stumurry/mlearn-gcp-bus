@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd machine-learning
+git diff --cached | flake8 --diff --config=src/setup.cfg

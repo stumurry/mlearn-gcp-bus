@@ -1,0 +1,9 @@
+#!/bin/bash
+echo 'watching templates directory for changes'
+nohup watch_templates > /dev/null 2>&1 &
+
+echo 'airflow-entrypoint.sh >> Start the Airflow scheduler'
+nohup airflow scheduler > /dev/null 2>&1 &
+
+echo 'airflow-entrypoint.sh >> Up the Airflow webserver on port 8080'
+airflow webserver -p 8080

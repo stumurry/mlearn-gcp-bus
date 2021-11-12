@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+import os
+import sys
+import re
+import subprocess
+
+
+class Colors:
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+
+def changed_files():
+	src_dir = 'src/'
+	for f in subprocess.check_output('git diff --cached --name-only', shell=True).splitlines():
+		if os.path.isfile(f) and src_dir in f:
+			yield f
+
+
+def check_flake8_diff():
+	print(Colors.OKGREEN + '[pre-commit] Checking flake8 for changed lines...' + Colors.ENDC)
+	cmd = 'docker-compose exec -T githooks sh linter'
+	print('Running command: {}'.format(cmd))
+	s = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+	output = s.communicate()[0]
+	if s.returncode:
+		for error in output.splitlines():
+			error = error.strip()
+			if re.search('W\d{3}', error):
+				print(Colors.WARNING + error + Colors.ENDC)
+			else:
+				print(Colors.FAIL + error + Colors.ENDC)
+	return s.returncode
+
+
+def main():
+	file_list = list(changed_files())
+	if not file_list:
+		print('Nothing to commit')
+		sys.exit(0)
+	# up the container for the formatting and test
+	cmd = 'docker-compose up -d'
+	subprocess.call(cmd, shell=True)
+	return_code = check_flake8_diff()
+	if return_code:
+		print(Colors.FAIL + '-' * 80 + Colors.ENDC)
+		print(Colors.FAIL + 'ERRORS FOUND! COMMIT ABORTED.' + Colors.ENDC)
+	sys.exit(return_code)
+
+
+if __name__ == '__main__':
+    main()

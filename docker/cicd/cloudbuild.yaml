@@ -1,0 +1,70 @@
+steps:
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - > 
+        gcloud secrets versions access latest --secret=cicd > cicd.json
+    waitFor: ['-']
+    id: 'secrets'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build 
+        -f docker/cicd/airflow/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-airflow:${_PR_NUMBER}
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'airflow-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run gcr.io/$PROJECT_ID/cicd-airflow:${_PR_NUMBER}
+    waitFor: ['airflow-build']
+    id: 'airflow-run'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/cicd/dataflow/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-dataflow:${_PR_NUMBER}
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'dataflow-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run gcr.io/$PROJECT_ID/cicd-dataflow:${_PR_NUMBER}
+    waitFor: ['dataflow-build']
+    id: 'dataflow-run'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/cicd/apis/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-apis:${_PR_NUMBER}
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'apis-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run gcr.io/$PROJECT_ID/cicd-apis:${_PR_NUMBER}
+    waitFor: ['apis-build']
+    id: 'apis-run'
+substitutions:
+  _ENV: local
+
+timeout: '1800.0s'

@@ -1,0 +1,139 @@
+steps:
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - > 
+        gcloud secrets versions access latest --secret=cicd > cicd.json
+    waitFor: ['-']
+    id: 'secrets'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'  
+      - >
+        docker build
+        -f docker/cicd/dataflow/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-dataflow
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'dataflow-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - >
+        docker run -i
+        gcr.io/$PROJECT_ID/cicd-dataflow
+        jeeves dataflow deploy-all ${_ENV}
+    waitFor: ['dataflow-build']
+    id: 'deploy-dataflow'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/cicd/airflow/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-airflow
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'airflow-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - >
+        docker run -i
+        gcr.io/$PROJECT_ID/cicd-airflow
+        jeeves composer deploy-all ${_ENV}
+    waitFor: ['airflow-build']
+    id: 'deploy-airflow'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - >
+        docker run -i
+        gcr.io/$PROJECT_ID/cicd-airflow
+        jeeves composer update-airflow-vars ${_ENV}
+    waitFor: ['deploy-airflow']
+    id: 'update-airflow-vars'
+  # - name: 'gcr.io/cloud-builders/docker'
+  #   entrypoint: 'bash'
+  #   args:
+  #     - '-c'
+  #     - >
+  #       docker run -i
+  #       gcr.io/$PROJECT_ID/cicd-airflow
+  #       jeeves composer update-composer-vars ${_ENV}
+  #   waitFor: ['airflow-build']
+  #   id: 'update-composer-vars'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - >
+        docker run -i
+        gcr.io/$PROJECT_ID/cicd-airflow
+        jeeves composer update-composer-requirements -a ${_ENV}
+    waitFor: ['update-airflow-vars']
+    id: 'update-composer-requirements'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/cicd/workspace/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-workspace
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'workspace-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - >
+        docker run -i
+        gcr.io/$PROJECT_ID/cicd-workspace
+        jeeves bigquery_migration up ${_ENV}
+    waitFor: ['workspace-build']
+    id: 'deploy-migration'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/apis/Dockerfile
+        -t gcr.io/$PROJECT_ID/ml-apis
+        --build-arg env=${_ENV}
+        --build-arg PROJECT_ID=${PROJECT_ID}  .
+    waitFor: ['secrets']
+    id: 'apis-cloudrun-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker push gcr.io/$PROJECT_ID/ml-apis
+    waitFor: ['apis-cloudrun-build']
+    id: 'apis-cloudrun-gcr-push'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'recommendation-engine'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/ml-apis'
+      - '--region'
+      - 'us-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+    waitFor: ['apis-cloudrun-gcr-push', 'workspace-build']
+    id: 'apis-cloudrun-deploy'
+substitutions:
+  _ENV: local

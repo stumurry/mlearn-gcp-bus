@@ -1,0 +1,7 @@
+#!/bin/bash
+
+workdir = '/workspace/apis'
+
+cd workdir
+echo 'start_flask.sh >> Up Flask server on port 8885'
+python server.py

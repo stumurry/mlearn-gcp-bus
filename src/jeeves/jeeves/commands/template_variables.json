@@ -1,0 +1,29 @@
+{
+    "dags": [
+        "cdc_from_gcs_to_lake",
+        "lake_to_staging",
+        "bq_to_wrench",
+        "staging_to_warehouse",
+        "housekeeping_images",
+        "wrench_to_bq",
+        "wrench_tasks"
+    ],
+    "dag_templates": [
+    ],
+    "beam_templates": [
+        { "source": "load_cdc_from_gcs_to_lake" },
+        { "source": "load_lake_to_pii_users" },
+        { "source": "load_lake_to_staging_contacts" },
+        { "source": "load_lake_to_staging_orders" },
+        { "source": "load_lake_to_staging_users" },
+        { "source": "load_lake_to_staging_zleads" },
+        { "source": "load_sql_to_bq" },
+        { "source": "load_vibe_to_lake" },
+        { "source": "offload_bq_to_cs" },
+        { "source": "load_staging_to_warehouse_distributor_orders" },
+        { "source": "load_wrench_to_bq" }
+    ],
+    "clients": [
+        "worldventures"
+    ]
+}

@@ -1,0 +1,15 @@
+#!/bin/bash
+echo 'airflow-entrypoint.sh >> Start Up Airflow Container Services'
+
+#echo 'airflow-entrypoint.sh >> Create a user. TODO: It would be nice if we did not have to authenticate. Research options'
+#airflow users create --role Admin --username dtm --email dtm@icentris.com --firstname DTM --lastname Admin --password password
+
+pip install -r /workspace/airflow/dags/requirements.txt
+
+echo 'airflow-entrypoint.sh >> Import Airflow variables'
+airflow variables -i /workspace/airflow/variables.json
+
+echo 'airflow-entrypoin.sh >> install icentris-ml-airflow package in editable mode'
+pip install -e .
+
+exec "$@"

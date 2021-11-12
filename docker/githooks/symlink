@@ -1,0 +1,7 @@
+#!/bin/sh
+
+cd hooks
+ls | xargs chmod +x
+cd .git/hooks
+find ../../hooks -type f -exec ln -sf {} .git/hooks/ \;
+echo 'githooks installed'

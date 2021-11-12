@@ -1,0 +1,62 @@
+steps:
+    # Mysql
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '-f', 'docker/mysql/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/mysql:latest', '.']
+      waitFor: ['-']
+      id: 'build-mysql'
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['push', 'gcr.io/$PROJECT_ID/mysql:latest']
+      waitFor: ['build-mysql']
+      id: 'push-mysql'
+      
+    # First build the base. Airflow, Dataflow, and workspace inherit from base. - Stu. M 5/28/20
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '--build-arg', 'env=$_ENV', '-f', 'docker/base/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/base:latest', '.']
+      waitFor: ['-']
+      id: 'build-base'
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['push', 'gcr.io/$PROJECT_ID/base:latest']
+      waitFor: ['build-base']
+      id: 'push-base'
+    
+    # Airflow
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '--build-arg', 'env=$_ENV', '-f', 'docker/airflow/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/airflow:latest', '.']
+      waitFor: ['build-base']
+      id: 'build-airflow'
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['push', 'gcr.io/$PROJECT_ID/airflow:latest']
+      waitFor: ['build-airflow']
+      id: 'push-airflow'
+
+    # Dataflow
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '--build-arg', 'env=$_ENV', '-f', 'docker/dataflow/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/dataflow:latest', '.']
+      waitFor: ['build-base']
+      id: 'build-dataflow'
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['push', 'gcr.io/$PROJECT_ID/dataflow:latest']
+      waitFor: ['build-dataflow']
+      id: 'push-dataflow'
+
+    # Workspace
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '--build-arg', 'env=$_ENV', '-f', 'docker/workspace/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/workspace:latest', '.']
+      waitFor: ['build-base']
+      id: 'build-workspace'
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['push', 'gcr.io/$PROJECT_ID/workspace:latest']
+      waitFor: ['build-workspace']
+      id: 'push-workspace'
+
+    # Apis
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '--build-arg', 'env=$_ENV', '-f', 'docker/apis/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/ml-apis:latest', '.']
+      waitFor: ['build-base']
+      id: 'build-apis'
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['push', 'gcr.io/$PROJECT_ID/ml-apis:latest']
+      waitFor: ['build-apis']
+      id: 'push-apis'
+
+timeout: '1800.0s'

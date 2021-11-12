@@ -1,0 +1,105 @@
+steps:
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - > 
+        gcloud secrets versions access latest --secret=cicd > cicd.json
+    waitFor: ['-']
+    id: 'secrets'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build 
+        -f docker/cicd/airflow/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-airflow:${_PR_NUMBER}
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'cicd-airflow-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run gcr.io/$PROJECT_ID/cicd-airflow:${_PR_NUMBER}
+    waitFor: ['cicd-airflow-build']
+    id: 'cicd-airflow-test'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/cicd/dataflow/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-dataflow:${_PR_NUMBER}
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'cicd-dataflow-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run gcr.io/$PROJECT_ID/cicd-dataflow:${_PR_NUMBER}
+    waitFor: ['cicd-dataflow-build']
+    id: 'cicd-dataflow-test'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker build
+        -f docker/cicd/apis/Dockerfile
+        -t gcr.io/$PROJECT_ID/cicd-apis:${_PR_NUMBER}
+        --build-arg env=${_ENV} .
+    waitFor: ['secrets']
+    id: 'cicd-apis-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '--build-arg', 'env=$_ENV', '-f', 'docker/apis/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/ml-apis:latest', '.']
+    waitFor: ['secrets']
+    id: 'apis-build'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker push gcr.io/$PROJECT_ID/ml-apis
+    waitFor: ['apis-build']
+    id: 'apis-gcr-upload'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'recommendation-engine'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/ml-apis'
+      - '--region'
+      - 'us-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+    waitFor: ['apis-gcr-upload']
+    id: 'apis-cloudrun-deploy'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run gcr.io/$PROJECT_ID/cicd-apis:${_PR_NUMBER} ./run.sh
+    waitFor: ['cicd-apis-build', 'cicd-dataflow-test', 'cicd-airflow-test']
+    id: 'cicd-apis-test'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: 
+      - '-c'
+      - >
+        docker run -e TEST_AFTER_DEPLOYMENT=true gcr.io/$PROJECT_ID/cicd-apis:${_PR_NUMBER} pytest -s tests/functional
+    waitFor: ['cicd-apis-test', 'apis-cloudrun-deploy']
+    id: 'apis-functional-test'
+substitutions:
+  _ENV: local
+
+timeout: '1800.0s'
